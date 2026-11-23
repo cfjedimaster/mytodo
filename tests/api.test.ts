@@ -2,6 +2,7 @@ import { NetlifyDB } from '@netlify/database-dev'
 import type { Context } from '@netlify/functions'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import adminHandler from '../netlify/functions/admin.mts'
 import authHandler from '../netlify/functions/auth.mts'
 import groupsHandler from '../netlify/functions/groups.mts'
 import listsHandler from '../netlify/functions/lists.mts'
@@ -9,6 +10,7 @@ import stepsHandler from '../netlify/functions/steps.mts'
 import todosHandler from '../netlify/functions/todos.mts'
 import workspaceHandler from '../netlify/functions/workspace.mts'
 import {
+  ADMIN_COOKIE_NAME,
   createSessionCookie,
   SESSION_COOKIE_NAME,
   type AuthenticatedUser
@@ -84,6 +86,7 @@ beforeAll(async () => {
   process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com'
   process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret'
   process.env.SESSION_SECRET = '0123456789abcdef0123456789abcdef0123456789abcdef'
+  process.env.ADMIN_PASSWORD = 'test-admin-password'
 
   netlifyDb = new NetlifyDB()
   const connectionString = await netlifyDb.start()
@@ -100,7 +103,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   const db = getDb()
-  await db.sql`TRUNCATE public.todo_steps, public.todos, public.todo_lists, public.list_groups CASCADE`
+  await db.sql`TRUNCATE public.todo_steps, public.todos, public.todo_lists, public.list_groups, public.users CASCADE`
 })
 
 afterEach(() => {
@@ -180,7 +183,16 @@ describe('Vanilla Google OAuth 2.0 + PKCE and signed session cookies', () => {
     expect(sessionSetCookie).toContain('Secure')
     const sessionCookiePair = cookiePairFromSetCookie(sessionSetCookie)
 
-    // 5. Issued cookie authenticates /api/auth/status and /api/workspace
+    // 5. Issued cookie authenticates /api/auth/status and /api/workspace, and user login was recorded
+    const db = getDb()
+    const recordedUsers = await db.sql<{ id: string; email: string; name: string; last_login_at: Date }>`
+      SELECT id, email, name, last_login_at FROM public.users WHERE id = ${USER_A.id}
+    `
+    expect(recordedUsers).toHaveLength(1)
+    expect(recordedUsers[0].email).toBe(USER_A.email)
+    expect(recordedUsers[0].name).toBe(USER_A.name)
+    expect(recordedUsers[0].last_login_at).toBeTruthy()
+
     const statusAfter = await authHandler(
       makeRequest('/api/auth/status', { cookie: sessionCookiePair })
     )
@@ -666,5 +678,142 @@ describe('Cross-tenant isolation (RLS replacement)', () => {
     )
     expect(dupRes.status).toBe(409)
     expect((await readJson(dupRes)).code).toBe('DUPLICATE_KEY')
+  })
+})
+
+describe('Admin authentication and privacy-safe usage report', () => {
+  it('guards /api/admin/report, verifies password, and returns aggregate counts + anonymized last 10 logins', async () => {
+    // 1. Unauthenticated and regular user sessions are both rejected with 401
+    expect((await adminHandler(makeRequest('/api/admin/report'))).status).toBe(401)
+    expect((await adminHandler(makeRequest('/api/admin/report', { user: USER_A }))).status).toBe(401)
+
+    // 2. Cross-origin login blocked with 403; wrong password rejected with 401
+    expect(
+      (
+        await adminHandler(
+          makeRequest('/api/admin/login', {
+            method: 'POST',
+            body: { password: 'test-admin-password' },
+            origin: 'https://evil.example'
+          })
+        )
+      ).status
+    ).toBe(403)
+
+    expect(
+      (
+        await adminHandler(
+          makeRequest('/api/admin/login', {
+            method: 'POST',
+            body: { password: 'wrong-password' }
+          })
+        )
+      ).status
+    ).toBe(401)
+
+    // 3. Seed 12 users, 2 lists, and 3 todos (1 completed)
+    const db = getDb()
+    for (let i = 1; i <= 12; i++) {
+      await db.sql`
+        INSERT INTO public.users (id, email, name, last_login_at)
+        VALUES (
+          ${`google-sub-${i}`},
+          ${`private-user-${i}@example.com`},
+          ${`Private Name ${i}`},
+          now() - make_interval(mins => ${12 - i})
+        )
+      `
+    }
+
+    const list1 = await readJson(
+      await listsHandler(
+        makeRequest('/api/lists', { method: 'POST', user: USER_A, body: { name: 'Secret List 1' } }),
+        makeContext()
+      )
+    )
+    await listsHandler(
+      makeRequest('/api/lists', { method: 'POST', user: USER_B, body: { name: 'Secret List 2' } }),
+      makeContext()
+    )
+    await todosHandler(
+      makeRequest('/api/todos', {
+        method: 'POST',
+        user: USER_A,
+        body: { title: 'Private Task 1', listId: list1.id }
+      }),
+      makeContext()
+    )
+    await todosHandler(
+      makeRequest('/api/todos', {
+        method: 'POST',
+        user: USER_A,
+        body: { title: 'Private Task 2', isCompleted: true }
+      }),
+      makeContext()
+    )
+    await todosHandler(
+      makeRequest('/api/todos', {
+        method: 'POST',
+        user: USER_B,
+        body: { title: 'Private Task 3' }
+      }),
+      makeContext()
+    )
+
+    // 4. Valid admin login sets HttpOnly Secure cookie
+    const loginRes = await adminHandler(
+      makeRequest('/api/admin/login', {
+        method: 'POST',
+        body: { password: 'test-admin-password' }
+      })
+    )
+    expect(loginRes.status).toBe(200)
+    const adminSetCookie = loginRes.headers.get('set-cookie')!
+    expect(adminSetCookie).toContain(`${ADMIN_COOKIE_NAME}=`)
+    expect(adminSetCookie).toContain('HttpOnly')
+    expect(adminSetCookie).toContain('SameSite=Lax')
+    expect(adminSetCookie).toContain('Secure')
+    const adminCookiePair = cookiePairFromSetCookie(adminSetCookie)
+
+    // 5. Fetch report and verify totals, cap of 10 logins, and zero PII/content leaks
+    const reportRes = await adminHandler(
+      makeRequest('/api/admin/report', { cookie: adminCookiePair })
+    )
+    expect(reportRes.status).toBe(200)
+    expect(reportRes.headers.get('cache-control')).toContain('no-store')
+
+    const report = await readJson(reportRes)
+    expect(report.totals).toEqual({
+      users: 12,
+      lists: 2,
+      todos: 3,
+      activeTodos: 2,
+      completedTodos: 1
+    })
+    expect(report.recentLogins).toHaveLength(10)
+    expect(report.recentLogins[0].account).toMatch(/^User #[0-9a-f]{8}$/)
+
+    // Verify descending order by lastLoginAt
+    for (let i = 1; i < report.recentLogins.length; i++) {
+      expect(Date.parse(report.recentLogins[i - 1].lastLoginAt)).toBeGreaterThanOrEqual(
+        Date.parse(report.recentLogins[i].lastLoginAt)
+      )
+    }
+
+    // Verify zero PII or user content appears anywhere in the JSON payload
+    const rawPayload = JSON.stringify(report)
+    expect(rawPayload).not.toContain('private-user-')
+    expect(rawPayload).not.toContain('Private Name')
+    expect(rawPayload).not.toContain('google-sub-')
+    expect(rawPayload).not.toContain('Secret List')
+    expect(rawPayload).not.toContain('Private Task')
+
+    // 6. Logout clears admin cookie
+    const logoutRes = await adminHandler(
+      makeRequest('/api/admin/logout', { method: 'POST', cookie: adminCookiePair })
+    )
+    expect(logoutRes.status).toBe(200)
+    expect(logoutRes.headers.get('set-cookie')).toContain(`${ADMIN_COOKIE_NAME}=;`)
+    expect(logoutRes.headers.get('set-cookie')).toContain('Max-Age=0')
   })
 })

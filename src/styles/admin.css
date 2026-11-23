@@ -1,0 +1,404 @@
+body {
+  padding: 24px;
+  display: grid;
+  place-items: start center;
+}
+
+.admin-shell {
+  position: relative;
+  width: min(860px, 100%);
+  margin-block: 16px;
+  padding: 26px 30px 34px;
+  overflow: hidden;
+  border: 1px solid var(--window-border);
+  border-radius: 20px;
+  background: var(--window-bg);
+  box-shadow: var(--window-shadow);
+}
+
+.admin-shell .rainbow {
+  width: 320px;
+  height: 240px;
+  right: -135px;
+  top: -120px;
+}
+
+.admin-topbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.admin-brand-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.back-link {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  color: var(--text);
+}
+
+.admin-badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: var(--accent-ink);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.admin-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-secondary-btn {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--list-bg);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.admin-secondary-btn:hover:not(:disabled) {
+  background: var(--hover);
+  filter: none;
+}
+
+.admin-login-card {
+  position: relative;
+  z-index: 1;
+  width: min(400px, 100%);
+  margin: 18px auto 12px;
+}
+
+.admin-header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.admin-header .brand {
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.admin-header h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.admin-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-field label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.password-input-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--list-bg);
+  overflow: hidden;
+}
+
+.password-input-wrap:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.password-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 13px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.password-input-wrap input:focus {
+  outline: none;
+}
+
+.password-toggle {
+  padding: 0 14px;
+  border: 0;
+  border-inline-start: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.password-toggle:hover {
+  color: var(--text);
+  filter: none;
+}
+
+.admin-primary-btn {
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-alert {
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.admin-report {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.report-heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.report-heading-row h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.report-subtitle,
+.report-updated {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--list-bg);
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+}
+
+.stat-meta {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.report-table-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--list-bg);
+  overflow: hidden;
+}
+
+.table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(500px, 70vh);
+  container-type: inline-size;
+}
+
+.logins-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  --label-2: "Last login";
+  --label-3: "First seen";
+}
+
+.logins-table caption {
+  padding: 16px 20px 10px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.logins-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+
+.logins-table thead th {
+  padding: 10px 20px;
+  border-block: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.logins-table tbody th,
+.logins-table tbody td {
+  padding: 12px 20px;
+  border-block-end: 1px solid var(--line);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.logins-table tbody tr:last-child th,
+.logins-table tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.logins-table tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--list-bg);
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.empty-cell {
+  color: var(--muted);
+  text-align: center;
+  padding: 24px 20px !important;
+}
+
+@container (width < 520px) {
+  .logins-table,
+  .logins-table thead,
+  .logins-table tbody,
+  .logins-table tr,
+  .logins-table th,
+  .logins-table td {
+    display: block;
+  }
+
+  .logins-table thead {
+    display: none;
+  }
+
+  .logins-table tbody {
+    padding: 0 14px 14px;
+  }
+
+  .logins-table tbody tr {
+    margin-block-end: 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .logins-table tbody tr:last-child {
+    margin-block-end: 0;
+  }
+
+  .logins-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    padding: 10px 14px;
+    background: var(--surface);
+  }
+
+  .logins-table tbody td {
+    padding: 8px 14px;
+    white-space: normal;
+  }
+
+  .logins-table td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .logins-table td:nth-child(3)::before {
+    content: var(--label-3) ": ";
+    color: var(--muted);
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 560px) {
+  body {
+    padding: 14px;
+  }
+
+  .admin-shell {
+    padding: 18px 18px 24px;
+  }
+}

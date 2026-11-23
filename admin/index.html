@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f3eaff" />
+    <script>
+      try {
+        const saved = localStorage.getItem('mytodo-theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolved = saved === 'light' || saved === 'dark' ? saved : (prefersDark ? 'dark' : 'light');
+        if (saved === 'light' || saved === 'dark') {
+          document.querySelector('meta[name="color-scheme"]').content = saved;
+          document.documentElement.dataset.theme = saved;
+        }
+        document.querySelector('meta[name="theme-color"]').content = resolved === 'dark' ? '#21183a' : '#f3eaff';
+      } catch {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Admin Report — My To Do</title>
+  </head>
+  <body>
+    <main class="admin-shell" x-data="adminPage" x-cloak x-show="ready">
+      <div class="rainbow" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i>
+      </div>
+
+      <header class="admin-topbar">
+        <div class="admin-brand-group">
+          <a href="/" class="back-link">← Home</a>
+          <span class="admin-badge">Admin</span>
+        </div>
+        <div class="admin-topbar-actions">
+          <div class="theme-switch" role="group" aria-label="Theme">
+            <button type="button" class="sun" :class="{ 'selected-theme': theme === 'light' }"
+              :aria-pressed="theme === 'light'" aria-label="Light theme" title="Light theme"
+              @click="setTheme('light')">☼</button>
+            <button type="button" class="moon" :class="{ 'selected-theme': theme === 'dark' }"
+              :aria-pressed="theme === 'dark'" aria-label="Dark theme" title="Dark theme"
+              @click="setTheme('dark')">☾</button>
+          </div>
+          <button type="button" class="admin-secondary-btn" x-show="authenticated"
+            @click="loadReport" :disabled="loading">
+            <span x-text="loading ? 'Refreshing…' : 'Refresh'"></span>
+          </button>
+          <button type="button" class="admin-secondary-btn" x-show="authenticated"
+            @click="signOut" :disabled="loading">
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      <!-- Password Sign-In Gate -->
+      <section class="admin-login-card" x-show="!authenticated" aria-labelledby="admin-login-heading">
+        <div class="admin-header">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </span>
+            <span>My To Do</span>
+          </div>
+          <h1 id="admin-login-heading">Admin Report</h1>
+          <p>Enter the admin password to view privacy-safe usage totals and recent sign-ins.</p>
+        </div>
+
+        <form class="admin-form" @submit.prevent="submitPassword">
+          <div class="admin-field">
+            <label for="admin-password">Admin password</label>
+            <div class="password-input-wrap">
+              <input
+                id="admin-password"
+                name="password"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="current-password"
+                enterkeyhint="done"
+                required
+                x-model="password"
+                x-ref="passwordInput"
+              />
+              <button
+                type="button"
+                class="password-toggle"
+                :aria-pressed="showPassword ? 'true' : 'false'"
+                @click="showPassword = !showPassword"
+                x-text="showPassword ? 'Hide' : 'Show'"
+              ></button>
+            </div>
+          </div>
+
+          <button type="submit" class="admin-primary-btn" :disabled="submitting">
+            <span x-text="submitting ? 'Signing in…' : 'Sign in'"></span>
+          </button>
+
+          <div class="admin-alert" role="alert" x-show="errorMessage" x-text="errorMessage"></div>
+        </form>
+      </section>
+
+      <!-- Usage Report -->
+      <section class="admin-report" x-show="authenticated && report" aria-labelledby="admin-report-heading">
+        <div class="report-heading-row">
+          <div>
+            <h1 id="admin-report-heading">Usage Report</h1>
+            <p class="report-subtitle">Aggregate counts and anonymized sign-in timestamps only—no personal details or task content.</p>
+          </div>
+          <p class="report-updated" x-show="report?.generatedAt">
+            Updated <time :datetime="report?.generatedAt" x-text="formatDateTime(report?.generatedAt)"></time>
+          </p>
+        </div>
+
+        <div class="admin-alert" role="alert" x-show="errorMessage" x-text="errorMessage"></div>
+
+        <div class="stats-grid" aria-label="Totals">
+          <article class="stat-card">
+            <span class="stat-label">Users</span>
+            <strong class="stat-value" x-text="formatNumber(report?.totals?.users)"></strong>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Custom Lists</span>
+            <strong class="stat-value" x-text="formatNumber(report?.totals?.lists)"></strong>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Total To Dos</span>
+            <strong class="stat-value" x-text="formatNumber(report?.totals?.todos)"></strong>
+            <span class="stat-meta"
+              x-text="`${formatNumber(report?.totals?.activeTodos)} open · ${formatNumber(report?.totals?.completedTodos)} completed`"></span>
+          </article>
+        </div>
+
+        <div class="report-table-card">
+          <div tabindex="0" role="region" aria-labelledby="recent-logins-caption" class="table-wrapper">
+            <table class="logins-table">
+              <caption id="recent-logins-caption">Last 10 Logins</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Account</th>
+                  <th scope="col">Last login</th>
+                  <th scope="col">First seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-if="(report?.recentLogins?.length ?? 0) === 0">
+                  <tr>
+                    <td colspan="3" class="empty-cell">No sign-ins recorded yet.</td>
+                  </tr>
+                </template>
+                <template x-for="entry in (report?.recentLogins ?? [])" :key="entry.account + entry.lastLoginAt">
+                  <tr>
+                    <th scope="row" class="account-cell" x-text="entry.account"></th>
+                    <td>
+                      <time :datetime="entry.lastLoginAt" x-text="formatDateTime(entry.lastLoginAt)"></time>
+                    </td>
+                    <td>
+                      <time :datetime="entry.joinedAt" x-text="formatDateTime(entry.joinedAt)"></time>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/admin.js"></script>
+  </body>
+</html>

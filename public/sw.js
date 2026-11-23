@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-to-do-shell-v3'
+const CACHE_NAME = 'my-to-do-shell-v4'
 const SHELL_URLS = [
   '/',
   '/app',
@@ -58,7 +58,14 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
   if (url.pathname === '/precache-manifest.json') return
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.netlify/')) return
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/.netlify/') ||
+    url.pathname === '/admin' ||
+    url.pathname.startsWith('/admin/')
+  ) {
+    return
+  }
 
   // Network-first for HTML navigations so auth redirects & fresh deploys work immediately
   if (request.mode === 'navigate') {

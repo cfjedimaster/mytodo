@@ -12,6 +12,7 @@ import {
   safeEqual,
   verifyOAuthStateCookie
 } from '../lib/auth.ts'
+import { getDb } from '../lib/db.ts'
 import { ApiError, handleRouteError, jsonResponse } from '../lib/http.ts'
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -188,12 +189,22 @@ export default async (req: Request): Promise<Response> => {
         )
       }
 
+      const userId = profile.sub.trim()
+      const email = typeof profile.email === 'string' ? profile.email : ''
+      const name = typeof profile.name === 'string' ? profile.name : ''
+
+      const db = getDb()
+      await db.sql`
+        INSERT INTO public.users (id, email, name, last_login_at)
+        VALUES (${userId}, ${email}, ${name}, now())
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
+          name = EXCLUDED.name,
+          last_login_at = now()
+      `
+
       const sessionCookie = createSessionCookie(
-        {
-          id: profile.sub.trim(),
-          email: typeof profile.email === 'string' ? profile.email : '',
-          name: typeof profile.name === 'string' ? profile.name : ''
-        },
+        { id: userId, email, name },
         req.url
       )
 

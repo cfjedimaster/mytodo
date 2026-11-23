@@ -3,9 +3,11 @@ import { ApiError } from './http.ts'
 
 export const SESSION_COOKIE_NAME = 'mytodo_session'
 export const OAUTH_COOKIE_NAME = 'mytodo_oauth'
+export const ADMIN_COOKIE_NAME = 'mytodo_admin_session'
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30 // 30 days
 const OAUTH_TTL_SECONDS = 60 * 10 // 10 minutes
+const ADMIN_TTL_SECONDS = 60 * 60 * 8 // 8 hours
 
 export interface AuthenticatedUser {
   id: string
@@ -51,6 +53,34 @@ export function getOAuthConfig() {
     sessionSecret,
     isConfigured: Boolean(clientId && clientSecret && sessionSecret.length >= 16)
   }
+}
+
+export function getAdminConfig() {
+  const adminPassword = getEnv('ADMIN_PASSWORD')
+  const sessionSecret = getEnv('SESSION_SECRET')
+
+  return {
+    adminPassword,
+    sessionSecret,
+    isConfigured: Boolean(adminPassword.length > 0 && sessionSecret.length >= 16)
+  }
+}
+
+export function verifyAdminPassword(candidate: string): boolean {
+  const { adminPassword } = getAdminConfig()
+  if (!adminPassword || typeof candidate !== 'string' || !candidate) return false
+  const hashA = createHash('sha256').update(candidate).digest()
+  const hashB = createHash('sha256').update(adminPassword).digest()
+  return timingSafeEqual(hashA, hashB)
+}
+
+export function anonymizeUserId(userId: string): string {
+  const { sessionSecret } = getAdminConfig()
+  const digest = createHmac('sha256', sessionSecret || 'anon')
+    .update(`admin-user:${userId}`)
+    .digest('hex')
+    .slice(0, 8)
+  return `User #${digest}`
 }
 
 export function generateRandomToken(byteLength = 32): string {
@@ -246,6 +276,55 @@ export function requireAuth(req: Request): AuthenticatedUser {
     throw new ApiError(401, 'Authentication required.', 'UNAUTHORIZED')
   }
   return user
+}
+
+export function createAdminSessionCookie(reqUrl: string): string {
+  const { sessionSecret } = getAdminConfig()
+  if (sessionSecret.length < 16) {
+    throw new ApiError(500, 'Session signing secret is not configured.', 'CONFIG_ERROR')
+  }
+
+  const now = Math.floor(Date.now() / 1000)
+  const token = signPayload(
+    {
+      role: 'admin',
+      iat: now,
+      exp: now + ADMIN_TTL_SECONDS
+    },
+    sessionSecret
+  )
+
+  return formatCookie(ADMIN_COOKIE_NAME, token, {
+    maxAge: ADMIN_TTL_SECONDS,
+    path: '/',
+    secure: isHttpsRequest(reqUrl)
+  })
+}
+
+export function clearAdminSessionCookie(reqUrl: string): string {
+  return formatCookie(ADMIN_COOKIE_NAME, '', {
+    maxAge: 0,
+    path: '/',
+    secure: isHttpsRequest(reqUrl)
+  })
+}
+
+export function isAdminAuthenticated(req: Request): boolean {
+  const { sessionSecret } = getAdminConfig()
+  if (sessionSecret.length < 16) return false
+
+  const cookies = parseCookies(req.headers.get('cookie'))
+  const raw = cookies[ADMIN_COOKIE_NAME]
+  if (!raw) return false
+
+  const payload = verifySignedPayload<{ role?: string; exp?: number }>(raw, sessionSecret)
+  return payload?.role === 'admin'
+}
+
+export function requireAdminAuth(req: Request): void {
+  if (!isAdminAuthenticated(req)) {
+    throw new ApiError(401, 'Admin authentication required.', 'UNAUTHORIZED')
+  }
 }
 
 export function requireSameOrigin(req: Request): void {

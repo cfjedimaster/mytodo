@@ -14,6 +14,8 @@ function createCleanRoutesPlugin() {
         req.url = `/login/index.html${suffix}`
       } else if (pathname === '/app' || pathname === '/app/') {
         req.url = `/app/index.html${suffix}`
+      } else if (pathname === '/admin' || pathname === '/admin/') {
+        req.url = `/admin/index.html${suffix}`
       }
       next()
     })
@@ -53,7 +55,8 @@ export default defineConfig({
       input: {
         main: resolve(rootDir, 'index.html'),
         login: resolve(rootDir, 'login/index.html'),
-        app: resolve(rootDir, 'app/index.html')
+        app: resolve(rootDir, 'app/index.html'),
+        admin: resolve(rootDir, 'admin/index.html')
       }
     }
   }
