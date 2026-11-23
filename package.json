@@ -1,0 +1,24 @@
+{
+  "name": "my-to-do",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "db:migrate": "netlify database migrations apply",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@netlify/database": "^2.0.3",
+    "@netlify/functions": "^6.1.1",
+    "alpinejs": "3.17.5",
+    "temporal-polyfill": "0.3.0"
+  },
+  "devDependencies": {
+    "@netlify/database-dev": "^1.0.2",
+    "vite": "8.3.7",
+    "vitest": "^4.1.12"
+  }
+}

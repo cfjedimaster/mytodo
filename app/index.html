@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f3eaff" />
+    <script>
+      try {
+        const saved = localStorage.getItem('mytodo-theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolved = saved === 'light' || saved === 'dark' ? saved : (prefersDark ? 'dark' : 'light');
+        if (saved === 'light' || saved === 'dark') {
+          document.querySelector('meta[name="color-scheme"]').content = saved;
+          document.documentElement.dataset.theme = saved;
+        }
+        document.querySelector('meta[name="theme-color"]').content = resolved === 'dark' ? '#21183a' : '#f3eaff';
+      } catch {}
+    </script>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="My To Do" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <title>My To Do</title>
+  </head>
+  <body>
+    <main class="app-window" x-data="todoApp" x-cloak x-show="authReady"
+      @keydown.window="handleGlobalKeydown($event)"
+      @beforeunload.window="flushPendingSaves">
+
+      <div class="workspace"
+        :class="{ 'has-detail': Boolean(selectedTodo) }"
+        :data-mobile-view="mobileView">
+
+        <!-- Left Sidebar / Mobile Swipe Drawer -->
+        <div class="sidebar-drawer" :class="{ 'is-open': drawerVisible }" x-ref="sidebarDrawer">
+          <div class="drawer-backdrop" aria-hidden="true"></div>
+          <div class="sidebar-scroller" x-ref="sidebarScroller" @click="handleDrawerBackdropClick($event)">
+            <aside class="sidebar" id="lists-drawer" x-ref="sidebarSheet" tabindex="-1" aria-label="Lists navigation">
+              <div class="brand">
+                <span class="brand-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
+                <span class="brand-name">My To Do</span>
+                <div class="theme-switch" role="group" aria-label="Theme">
+                  <button type="button" class="sun" :class="{ 'selected-theme': theme === 'light' }"
+                    :aria-pressed="theme === 'light'" aria-label="Light theme" title="Light theme"
+                    @click="setTheme('light')">☼</button>
+                  <button type="button" class="moon" :class="{ 'selected-theme': theme === 'dark' }"
+                    :aria-pressed="theme === 'dark'" aria-label="Dark theme" title="Dark theme"
+                    @click="setTheme('dark')">☾</button>
+                </div>
+                <button type="button" class="drawer-close icon-button" aria-label="Close menu"
+                  title="Close menu" @click="closeDrawer">×</button>
+              </div>
+
+              <!-- Global Search -->
+              <search class="sidebar-search">
+                <form class="sidebar-search-form" role="search" @submit.prevent="submitSearch">
+                  <label for="todo-search-input" class="visually-hidden">Search all tasks</label>
+                  <svg class="sidebar-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="m20 20-3.5-3.5"></path>
+                  </svg>
+                  <input id="todo-search-input" x-ref="searchInput" class="sidebar-search-input"
+                    type="search" name="q" placeholder="Search tasks…"
+                    autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="search"
+                    x-model="searchQuery"
+                    @input="onSearchInput"
+                    @keydown.escape="clearSearch({ focusInput: false })">
+                  <button type="button" class="sidebar-search-clear icon-button"
+                    x-show="searchQuery.trim().length > 0"
+                    aria-label="Clear search" title="Clear search"
+                    @click="clearSearch({ focusInput: true })">×</button>
+                </form>
+              </search>
+
+              <!-- Smart Lists + Custom Groups & Lists -->
+              <nav class="sidebar-nav" aria-label="Task lists">
+                <!-- Search results item when active -->
+                <div class="nav-row" x-show="isSearching">
+                  <button type="button" class="nav-item has-actions selected" aria-current="page" @click="closeDrawer">
+                    <span class="nav-icon search-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <path d="m20 20-3.5-3.5"></path>
+                      </svg>
+                    </span>
+                    <span class="nav-name">Search results</span>
+                    <span class="nav-count" x-text="activeTodos.length + completedTodos.length"></span>
+                  </button>
+                  <button type="button" class="nav-row-action" aria-label="Clear search" title="Clear search"
+                    @click="clearSearch()">×</button>
+                </div>
+
+                <!-- My Day -->
+                <div class="nav-row">
+                  <button type="button" class="nav-item"
+                    :class="{ selected: !isSearching && activeView === 'my-day' }"
+                    :aria-current="!isSearching && activeView === 'my-day' ? 'page' : false"
+                    @click="selectView('my-day')">
+                    <span class="nav-icon sun-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+                      </svg>
+                    </span>
+                    <span class="nav-name">My Day</span>
+                    <span class="nav-count" x-show="myDayCount > 0" x-text="myDayCount"></span>
+                  </button>
+                </div>
+
+                <!-- Default Tasks List -->
+                <div class="nav-row">
+                  <button type="button" class="nav-item"
+                    :class="{ selected: !isSearching && activeView === 'tasks' }"
+                    :aria-current="!isSearching && activeView === 'tasks' ? 'page' : false"
+                    @click="selectView('tasks')">
+                    <span class="nav-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 10.5 12 3l9 7.5"></path>
+                        <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"></path>
+                      </svg>
+                    </span>
+                    <span class="nav-name">Tasks</span>
+                    <span class="nav-count" x-show="defaultTasksCount > 0" x-text="defaultTasksCount"></span>
+                  </button>
+                </div>
+
+                <div class="sidebar-divider" role="separator"></div>
+
+                <!-- List Groups -->
+                <template x-for="group in groups" :key="group.id">
+                  <div class="list-group-wrap">
+                    <details class="list-group" open>
+                      <summary class="list-group-summary">
+                        <span class="nav-name" x-text="group.name"></span>
+                        <span class="nav-count" x-show="listsInGroup(group.id).length > 0" x-text="listsInGroup(group.id).length"></span>
+                      </summary>
+                      <div class="list-group-body">
+                        <template x-for="list in listsInGroup(group.id)" :key="list.id">
+                          <div class="nav-row">
+                            <button type="button" class="nav-item has-actions"
+                              :class="{ selected: !isSearching && activeView === 'list' && activeListId === list.id }"
+                              :aria-current="!isSearching && activeView === 'list' && activeListId === list.id ? 'page' : false"
+                              @click="selectCustomList(list.id)">
+                              <span class="dot" :class="list.color" aria-hidden="true"></span>
+                              <span class="nav-name" x-text="list.name"></span>
+                              <span class="nav-count" x-show="countForList(list.id) > 0" x-text="countForList(list.id)"></span>
+                            </button>
+                            <button type="button" class="nav-row-action"
+                              :aria-label="'Edit list ' + list.name" title="Edit list"
+                              @click="openListDialog(list)">
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 20h9"></path>
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        </template>
+                        <div class="list-group-empty" x-show="listsInGroup(group.id).length === 0">
+                          No lists in this group yet
+                        </div>
+                      </div>
+                    </details>
+                    <button type="button" class="group-action-btn"
+                      :aria-label="'Edit group ' + group.name" title="Edit group"
+                      @click="openGroupDialog(group)">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </template>
+
+                <!-- Ungrouped Custom Lists -->
+                <template x-for="list in ungroupedLists" :key="list.id">
+                  <div class="nav-row">
+                    <button type="button" class="nav-item has-actions"
+                      :class="{ selected: !isSearching && activeView === 'list' && activeListId === list.id }"
+                      :aria-current="!isSearching && activeView === 'list' && activeListId === list.id ? 'page' : false"
+                      @click="selectCustomList(list.id)">
+                      <span class="dot" :class="list.color" aria-hidden="true"></span>
+                      <span class="nav-name" x-text="list.name"></span>
+                      <span class="nav-count" x-show="countForList(list.id) > 0" x-text="countForList(list.id)"></span>
+                    </button>
+                    <button type="button" class="nav-row-action"
+                      :aria-label="'Edit list ' + list.name" title="Edit list"
+                      @click="openListDialog(list)">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </template>
+              </nav>
+
+              <!-- Sidebar Bottom Controls -->
+              <div class="sidebar-bottom">
+                <div class="sidebar-create-row">
+                  <button type="button" class="new-list-btn" @click="openListDialog(null)">
+                    <span aria-hidden="true">＋</span>
+                    <span>New list</span>
+                  </button>
+                  <button type="button" class="new-group-btn" aria-label="New group" title="New group"
+                    @click="openGroupDialog(null)">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+                      <path d="M12 10v6M9 13h6"></path>
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="account-bar" x-show="user">
+                  <div class="account-info" :title="userEmail">
+                    <span class="account-avatar" aria-hidden="true" x-text="userInitial"></span>
+                    <span class="account-email" x-text="userDisplayName"></span>
+                  </div>
+                  <div class="account-actions">
+                    <button type="button" class="alerts-icon-btn"
+                      x-show="notificationSupported"
+                      :class="{ 'is-active': alertsActive, 'is-blocked': notificationPermission === 'denied' }"
+                      :aria-pressed="alertsActive"
+                      :aria-label="alertsButtonTitle"
+                      :title="alertsButtonTitle"
+                      @click="toggleDesktopAlerts">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                      </svg>
+                    </button>
+                    <button type="button" class="logout-button" @click="logout" :disabled="loggingOut"
+                      aria-label="Log out" title="Log out">
+                      <span x-text="loggingOut ? '…' : 'Log out'"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- Center Main Tasks Panel -->
+        <section class="tasks-panel" aria-label="Tasks">
+          <header class="tasks-header">
+            <div class="tasks-header-lead">
+              <button type="button" class="drawer-toggle" x-ref="drawerToggle"
+                aria-label="Open lists menu" title="Lists" aria-controls="lists-drawer"
+                :aria-expanded="drawerOpen ? 'true' : 'false'" @click="openDrawer">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round">
+                  <path d="M4 7h16M4 12h16M4 17h16"></path>
+                </svg>
+              </button>
+              <div class="tasks-header-title-wrap">
+                <div class="tasks-header-title-row">
+                  <span class="dot" x-show="!isSearching && activeView === 'list' && currentList"
+                    :class="currentList?.color || 'purple'" aria-hidden="true"></span>
+                  <h1 x-text="viewTitle"></h1>
+                </div>
+                <p class="tasks-header-sub" role="status" aria-live="polite" x-text="viewSubtitle"></p>
+              </div>
+            </div>
+
+            <div class="tasks-header-actions">
+              <button type="button" class="header-action-btn" x-show="isSearching" @click="clearSearch()">
+                Clear search
+              </button>
+              <button type="button" class="header-action-btn"
+                x-show="!isSearching && activeView === 'list' && currentList"
+                @click="openListDialog(currentList)">
+                Edit list
+              </button>
+              <button type="button" class="header-action-btn danger"
+                x-show="!isSearching && activeView === 'list' && currentList"
+                @click="openDeleteListDialog(currentList)">
+                Delete
+              </button>
+            </div>
+          </header>
+
+          <div class="sync-status-bar"
+            x-show="showSyncBar"
+            :class="'is-' + syncBarTone"
+            role="status"
+            :aria-live="isSyncing ? 'off' : 'polite'">
+            <span class="sync-status-icon" aria-hidden="true">
+              <svg x-show="isOffline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="2" y1="2" x2="22" y2="22"></line>
+                <path d="M8.5 16.5a5 5 0 0 1 7 0"></path>
+                <path d="M2 8.82a15 15 0 0 1 4.17-2.65"></path>
+                <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"></path>
+                <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"></path>
+                <path d="M5 13a10 10 0 0 1 5.24-2.76"></path>
+                <line x1="12" y1="20" x2="12.01" y2="20"></line>
+              </svg>
+              <svg x-show="!isOffline" :class="{ 'is-spinning': isSyncing }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+            </span>
+            <span class="sync-status-text" x-text="syncBarMessage"></span>
+            <button type="button" class="sync-status-action"
+              x-show="!isOffline && !isSyncing && pendingSyncCount > 0 && !syncNeedsAuth"
+              @click="syncNow({ announce: true })">
+              Sync now
+            </button>
+            <a href="/login" class="sync-status-action" x-show="syncNeedsAuth">
+              Sign in
+            </a>
+          </div>
+
+          <div class="save-error" role="alert" x-show="errorMessage" x-text="errorMessage"></div>
+
+          <!-- Inline Add a Task Bar -->
+          <div class="add-task-wrap" x-show="!isSearching">
+            <form class="add-task-card" @submit.prevent="submitNewTask">
+              <div class="add-task-row">
+                <span class="add-task-plus" aria-hidden="true">＋</span>
+                <label for="new-task-title" class="visually-hidden">Add a task</label>
+                <input id="new-task-title" x-ref="newTaskInput" class="add-task-input" type="text"
+                  :placeholder="activeView === 'my-day' ? 'Add a task for today…' : 'Add a task…'"
+                  autocomplete="off"
+                  x-model="newTaskTitle"
+                  @focus="addBarExpanded = true">
+                <button type="submit" class="add-task-submit"
+                  x-show="newTaskTitle.trim().length > 0"
+                  :disabled="creatingTask">Add</button>
+              </div>
+
+              <div class="add-task-options" x-show="addBarExpanded || newTaskTitle.trim().length > 0">
+                <label class="quick-field">
+                  <span>Due</span>
+                  <input type="date" aria-label="Due date" x-model="newTaskDueDate">
+                </label>
+                <label class="quick-field">
+                  <span>Remind</span>
+                  <input type="datetime-local" aria-label="Reminder date and time" x-model="newTaskReminderLocal">
+                </label>
+                <label class="quick-field">
+                  <span>Repeat</span>
+                  <select aria-label="Repeat pattern" x-model="newTaskRepeat">
+                    <option value="">None</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </label>
+              </div>
+            </form>
+          </div>
+
+          <!-- Active Tasks + Collapsible Completed Section -->
+          <div class="tasks-scroller">
+            <div class="empty-state" x-show="loadingWorkspace">
+              <div class="empty-glyph" aria-hidden="true">✦</div>
+              <h2>Loading your tasks…</h2>
+            </div>
+
+            <template x-if="!loadingWorkspace">
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Incomplete Tasks -->
+                <div class="task-items" role="list" aria-label="Active tasks" x-show="activeTodos.length > 0">
+                  <template x-for="todo in activeTodos" :key="todo.id">
+                    <article class="task-row" role="listitem"
+                      :class="{ 'is-selected': selectedTodoId === todo.id }">
+                      <label class="task-check-label" :title="'Mark ' + todo.title + ' complete'">
+                        <input type="checkbox" class="task-checkbox"
+                          :aria-label="'Mark ' + todo.title + ' complete'"
+                          :checked="todo.isCompleted"
+                          @change="toggleTodo(todo)">
+                      </label>
+                      <button type="button" class="task-main-btn" @click="selectTodo(todo.id)">
+                        <span class="task-title" x-text="todo.title"></span>
+                        <div class="task-meta-line" x-show="hasMeta(todo)">
+                          <span class="task-list-pill" x-show="showListPill(todo)">
+                            <span class="dot" :class="listColorFor(todo.listId)" aria-hidden="true"></span>
+                            <span x-text="listNameFor(todo.listId)"></span>
+                          </span>
+                          <span class="task-badge" x-show="todo.steps.length > 0">
+                            <span x-text="stepProgressText(todo)"></span>
+                          </span>
+                          <span class="task-badge" x-show="todo.dueDate"
+                            :class="{ 'is-overdue': isOverdue(todo.dueDate, false), 'is-today': isDueToday(todo.dueDate) }">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                              <path d="M16 2v4M8 2v4M3 10h18"></path>
+                            </svg>
+                            <span x-text="formatDueDate(todo.dueDate)"></span>
+                          </span>
+                          <span class="task-badge" x-show="todo.reminderAt"
+                            :class="{ 'is-overdue': isReminderPast(todo.reminderAt, false) }">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                            <span x-text="formatReminder(todo.reminderAt)"></span>
+                          </span>
+                          <span class="task-badge" x-show="todo.repeatPattern">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <polyline points="17 1 21 5 17 9"></polyline>
+                              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                              <polyline points="7 23 3 19 7 15"></polyline>
+                              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                            </svg>
+                            <span x-text="formatRepeatLabel(todo.repeatPattern)"></span>
+                          </span>
+                          <span class="task-badge" x-show="todo.note && todo.note.trim().length > 0" title="Has note">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                              <polyline points="14 2 14 8 20 8"></polyline>
+                              <line x1="8" y1="13" x2="16" y2="13"></line>
+                              <line x1="8" y1="17" x2="13" y2="17"></line>
+                            </svg>
+                            <span>Note</span>
+                          </span>
+                        </div>
+                      </button>
+                    </article>
+                  </template>
+                </div>
+
+                <!-- Empty State when no active AND no completed tasks -->
+                <div class="empty-state" x-show="activeTodos.length === 0 && completedTodos.length === 0">
+                  <div class="empty-glyph" aria-hidden="true"
+                    x-text="isSearching ? '🔍' : (activeView === 'my-day' ? '☀' : '✦')"></div>
+                  <h2 x-text="emptyHeading"></h2>
+                  <p x-text="emptyDescription"></p>
+                  <button type="button" class="empty-action" x-show="isSearching" @click="clearSearch()">
+                    Clear search
+                  </button>
+                  <button type="button" class="empty-action" x-show="!isSearching"
+                    @click="$refs.newTaskInput?.focus()">
+                    Add your first task
+                  </button>
+                </div>
+
+                <!-- Completed Tasks Section (Collapsed by default!) -->
+                <details class="completed-section" x-ref="completedDetails" x-show="completedTodos.length > 0">
+                  <summary class="completed-summary">
+                    <span>Completed</span>
+                    <span class="completed-count" x-text="completedTodos.length"></span>
+                  </summary>
+                  <div class="completed-list" role="list" aria-label="Completed tasks">
+                    <template x-for="todo in completedTodos" :key="todo.id">
+                      <article class="task-row is-completed" role="listitem"
+                        :class="{ 'is-selected': selectedTodoId === todo.id }">
+                        <label class="task-check-label" :title="'Mark ' + todo.title + ' incomplete'">
+                          <input type="checkbox" class="task-checkbox"
+                            :aria-label="'Mark ' + todo.title + ' incomplete'"
+                            :checked="todo.isCompleted"
+                            @change="toggleTodo(todo)">
+                        </label>
+                        <button type="button" class="task-main-btn" @click="selectTodo(todo.id)">
+                          <span class="task-title" x-text="todo.title"></span>
+                          <div class="task-meta-line" x-show="hasMeta(todo)">
+                            <span class="task-list-pill" x-show="showListPill(todo)">
+                              <span class="dot" :class="listColorFor(todo.listId)" aria-hidden="true"></span>
+                              <span x-text="listNameFor(todo.listId)"></span>
+                            </span>
+                            <span class="task-badge" x-show="todo.steps.length > 0" x-text="stepProgressText(todo)"></span>
+                            <span class="task-badge" x-show="todo.dueDate" x-text="formatDueDate(todo.dueDate)"></span>
+                            <span class="task-badge" x-show="todo.repeatPattern" x-text="formatRepeatLabel(todo.repeatPattern)"></span>
+                          </div>
+                        </button>
+                      </article>
+                    </template>
+                  </div>
+                </details>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Right Task Detail Inspector Panel -->
+        <aside class="detail-panel" aria-label="Task details" x-show="selectedTodo">
+          <div class="rainbow" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i>
+          </div>
+
+          <template x-if="selectedTodo">
+            <div style="display: flex; flex-direction: column; height: 100%; min-height: 0;">
+              <div class="detail-topbar">
+                <button type="button" class="mobile-detail-back" @click="closeDetail">
+                  <span aria-hidden="true">←</span>
+                  <span>Tasks</span>
+                </button>
+                <span class="detail-status" role="status" aria-live="polite"
+                  x-text="savingStatus || 'Task details'"></span>
+                <button type="button" class="detail-close" aria-label="Close details" title="Close details"
+                  @click="closeDetail">×</button>
+              </div>
+
+              <div class="detail-body">
+                <!-- Title & Steps Card -->
+                <div class="detail-card">
+                  <div class="detail-title-row">
+                    <label class="task-check-label">
+                      <input type="checkbox" class="task-checkbox"
+                        :aria-label="'Mark ' + selectedTodo.title + ' complete'"
+                        :checked="selectedTodo.isCompleted"
+                        @change="toggleTodo(selectedTodo)">
+                    </label>
+                    <input type="text" class="detail-title-input"
+                      :class="{ 'is-completed': selectedTodo.isCompleted }"
+                      aria-label="Task title"
+                      x-model="selectedTodo.title"
+                      @input="scheduleDetailSave(selectedTodo)"
+                      @blur="flushDetailSave(selectedTodo)">
+                  </div>
+
+                  <!-- Steps List -->
+                  <div class="steps-list">
+                    <template x-for="step in selectedTodo.steps" :key="step.id">
+                      <div class="step-row">
+                        <label class="step-check-label">
+                          <input type="checkbox" class="task-checkbox is-small"
+                            :aria-label="'Mark step ' + step.title + ' complete'"
+                            :checked="step.isCompleted"
+                            @change="toggleStep(selectedTodo, step)">
+                        </label>
+                        <input type="text" class="step-title-input"
+                          :class="{ 'is-completed': step.isCompleted }"
+                          aria-label="Step title"
+                          x-model="step.title"
+                          @change="saveStepTitle(step)"
+                          @keydown.enter="$event.target.blur()">
+                        <button type="button" class="step-delete-btn"
+                          :aria-label="'Remove step ' + step.title" title="Remove step"
+                          @click="removeStep(selectedTodo, step)">×</button>
+                      </div>
+                    </template>
+
+                    <form class="add-step-form" @submit.prevent="addStepToSelected">
+                      <span class="add-step-plus" aria-hidden="true">＋</span>
+                      <label for="new-step-input" class="visually-hidden">Add a step</label>
+                      <input id="new-step-input" class="add-step-input" type="text"
+                        placeholder="Add step" autocomplete="off"
+                        x-model="newStepTitle">
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Due Date Card -->
+                <div class="detail-card">
+                  <div class="detail-field-row">
+                    <div class="detail-field-header">
+                      <label class="detail-field-label" for="detail-due-date">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                          <path d="M16 2v4M8 2v4M3 10h18"></path>
+                        </svg>
+                        <span>Due date</span>
+                      </label>
+                      <button type="button" class="detail-clear-btn" x-show="selectedTodo.dueDate"
+                        @click="setSelectedDueDate(null)">Clear</button>
+                    </div>
+                    <div class="preset-chips">
+                      <button type="button" class="preset-chip"
+                        :class="{ 'is-active': selectedTodo.dueDate === todayIso }"
+                        @click="setSelectedDueDate(todayIso)">Today</button>
+                      <button type="button" class="preset-chip"
+                        :class="{ 'is-active': selectedTodo.dueDate === tomorrowIso }"
+                        @click="setSelectedDueDate(tomorrowIso)">Tomorrow</button>
+                      <button type="button" class="preset-chip"
+                        :class="{ 'is-active': selectedTodo.dueDate === nextWeekIso }"
+                        @click="setSelectedDueDate(nextWeekIso)">Next week</button>
+                    </div>
+                    <input id="detail-due-date" type="date" class="detail-input"
+                      :value="selectedTodo.dueDate || ''"
+                      @change="setSelectedDueDate($event.target.value || null)">
+                  </div>
+                </div>
+
+                <!-- Reminder Card -->
+                <div class="detail-card">
+                  <div class="detail-field-row">
+                    <div class="detail-field-header">
+                      <label class="detail-field-label" for="detail-reminder">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span>Remind me</span>
+                      </label>
+                      <button type="button" class="detail-clear-btn" x-show="selectedTodo.reminderAt"
+                        @click="setSelectedReminder(null)">Clear</button>
+                    </div>
+                    <div class="preset-chips">
+                      <button type="button" class="preset-chip" @click="applyReminderPreset('later-today')">Later today</button>
+                      <button type="button" class="preset-chip" @click="applyReminderPreset('tomorrow-morning')">Tomorrow 9 AM</button>
+                      <button type="button" class="preset-chip" @click="applyReminderPreset('next-week')">Next week</button>
+                    </div>
+                    <input id="detail-reminder" type="datetime-local" class="detail-input"
+                      :value="toDateTimeLocalValue(selectedTodo.reminderAt)"
+                      @change="setSelectedReminderFromLocal($event.target.value)">
+                    <div class="reminder-alert-bar" x-show="notificationSupported">
+                      <template x-if="notificationPermission === 'default'">
+                        <button type="button" class="reminder-alert-btn" @click="toggleDesktopAlerts">
+                          Turn on desktop alerts
+                        </button>
+                      </template>
+                      <template x-if="notificationPermission === 'granted'">
+                        <div class="reminder-alert-status">
+                          <span x-text="alertsActive ? 'Desktop alerts are on' : 'Desktop alerts are muted'"></span>
+                          <button type="button" class="reminder-alert-link" @click="toggleDesktopAlerts"
+                            x-text="alertsActive ? 'Mute' : 'Unmute'"></button>
+                        </div>
+                      </template>
+                      <template x-if="notificationPermission === 'denied'">
+                        <span class="reminder-alert-blocked">Desktop alerts are blocked in your site settings.</span>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Repeat & List Card -->
+                <div class="detail-card">
+                  <div class="detail-field-row">
+                    <div class="detail-field-header">
+                      <label class="detail-field-label" for="detail-repeat">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="17 1 21 5 17 9"></polyline>
+                          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                          <polyline points="7 23 3 19 7 15"></polyline>
+                          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                        </svg>
+                        <span>Repeat</span>
+                      </label>
+                      <button type="button" class="detail-clear-btn" x-show="selectedTodo.repeatPattern"
+                        @click="setSelectedRepeat(null)">Clear</button>
+                    </div>
+                    <select id="detail-repeat" class="detail-select"
+                      :value="selectedTodo.repeatPattern || ''"
+                      @change="setSelectedRepeat($event.target.value || null)">
+                      <option value="">Does not repeat</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
+                  </div>
+
+                  <div class="detail-field-row" style="padding-top: 6px; border-top: 1px solid var(--line);">
+                    <label class="detail-field-label" for="detail-list">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                      </svg>
+                      <span>List</span>
+                    </label>
+                    <select id="detail-list" class="detail-select"
+                      :value="selectedTodo.listId || ''"
+                      @change="moveSelectedTodoToList($event.target.value || null)">
+                      <option value="">Tasks</option>
+                      <template x-for="list in lists" :key="list.id">
+                        <option :value="list.id" x-text="list.name"></option>
+                      </template>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Free-form Note Card -->
+                <div class="detail-card">
+                  <div class="detail-field-row">
+                    <label class="detail-field-label" for="detail-note">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                      </svg>
+                      <span>Note</span>
+                    </label>
+                    <textarea id="detail-note" class="detail-note-textarea"
+                      placeholder="Add a note…"
+                      x-model="selectedTodo.note"
+                      @input="scheduleDetailSave(selectedTodo)"
+                      @blur="flushDetailSave(selectedTodo)"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-footer">
+                <span class="detail-created" x-text="formatCreatedStamp(selectedTodo.createdAt)"></span>
+                <button type="button" class="detail-delete-btn" @click="deleteSelectedTodo">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                    <path d="M10 11v6M14 11v6"></path>
+                  </svg>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </template>
+        </aside>
+      </div>
+
+      <!-- Toast Notification (Undo / Repeat Created / Reminder Alert) -->
+      <div class="toast" role="status" aria-live="polite" x-show="toast.visible" x-transition.opacity>
+        <span x-text="toast.message"></span>
+        <button type="button" x-show="toast.actionLabel" @click="runToastAction" x-text="toast.actionLabel"></button>
+      </div>
+
+      <!-- Create / Edit Custom List Modal -->
+      <dialog class="app-dialog" closedby="any" aria-labelledby="list-dialog-title" x-ref="listDialog">
+        <form class="dialog-form" @submit.prevent="saveListDialog">
+          <h2 id="list-dialog-title" x-text="listDialog.id ? 'Edit list' : 'New list'"></h2>
+
+          <div class="dialog-field">
+            <label for="list-dialog-name">List name</label>
+            <input id="list-dialog-name" x-ref="listNameInput" type="text" autofocus autocomplete="off"
+              placeholder="e.g. Groceries, Weekend Trip" x-model="listDialog.name">
+          </div>
+
+          <div class="dialog-field">
+            <label>Color</label>
+            <div class="color-picker-row" role="radiogroup" aria-label="List color">
+              <template x-for="color in listColors" :key="color">
+                <button type="button" class="color-swatch"
+                  :class="{ 'is-selected': listDialog.color === color }"
+                  :aria-label="color" :aria-checked="listDialog.color === color" role="radio"
+                  @click="listDialog.color = color">
+                  <span class="dot" :class="color"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <div class="dialog-field">
+            <label for="list-dialog-group">Group (optional)</label>
+            <select id="list-dialog-group" x-model="listDialog.groupId">
+              <option value="">No group</option>
+              <template x-for="group in groups" :key="group.id">
+                <option :value="group.id" x-text="group.name"></option>
+              </template>
+            </select>
+          </div>
+
+          <p class="dialog-error" role="alert" x-show="dialogError" x-text="dialogError"></p>
+
+          <div class="dialog-actions">
+            <button type="button" class="btn-danger" style="margin-right: auto;"
+              x-show="listDialog.id"
+              @click="switchToDeleteList">Delete</button>
+            <button type="button" class="btn-secondary" @click="$refs.listDialog.close()">Cancel</button>
+            <button type="submit" class="btn-primary">Save</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Create / Edit Group Modal -->
+      <dialog class="app-dialog" closedby="any" aria-labelledby="group-dialog-title" x-ref="groupDialog">
+        <form class="dialog-form" @submit.prevent="saveGroupDialog">
+          <h2 id="group-dialog-title" x-text="groupDialog.id ? 'Edit group' : 'New group'"></h2>
+
+          <div class="dialog-field">
+            <label for="group-dialog-name">Group name</label>
+            <input id="group-dialog-name" x-ref="groupNameInput" type="text" autofocus autocomplete="off"
+              placeholder="e.g. Work, Personal, Projects" x-model="groupDialog.name">
+          </div>
+
+          <p class="dialog-error" role="alert" x-show="dialogError" x-text="dialogError"></p>
+
+          <div class="dialog-actions">
+            <button type="button" class="btn-danger" style="margin-right: auto;"
+              x-show="groupDialog.id"
+              @click="switchToDeleteGroup">Delete</button>
+            <button type="button" class="btn-secondary" @click="$refs.groupDialog.close()">Cancel</button>
+            <button type="submit" class="btn-primary">Save</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Confirm Delete List Modal -->
+      <dialog class="app-dialog" aria-labelledby="delete-list-title" x-ref="deleteListDialog">
+        <div class="dialog-form">
+          <h2 id="delete-list-title">Delete list?</h2>
+          <p class="dialog-message" x-text="deleteListMessage"></p>
+          <p class="dialog-error" role="alert" x-show="dialogError" x-text="dialogError"></p>
+          <div class="dialog-actions">
+            <button type="button" class="btn-secondary" autofocus @click="$refs.deleteListDialog.close()">Cancel</button>
+            <button type="button" class="btn-danger" @click="confirmDeleteList">Delete list</button>
+          </div>
+        </div>
+      </dialog>
+
+      <!-- Confirm Delete Group Modal -->
+      <dialog class="app-dialog" aria-labelledby="delete-group-title" x-ref="deleteGroupDialog">
+        <div class="dialog-form">
+          <h2 id="delete-group-title">Delete group?</h2>
+          <p class="dialog-message" x-text="deleteGroupMessage"></p>
+          <p class="dialog-error" role="alert" x-show="dialogError" x-text="dialogError"></p>
+          <div class="dialog-actions">
+            <button type="button" class="btn-secondary" autofocus @click="$refs.deleteGroupDialog.close()">Cancel</button>
+            <button type="button" class="btn-danger" @click="confirmDeleteGroup">Delete group</button>
+          </div>
+        </div>
+      </dialog>
+    </main>
+
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
