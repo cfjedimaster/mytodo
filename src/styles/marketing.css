@@ -457,13 +457,15 @@
   font-size: 12.5px;
 }
 
-.marketing-footer button {
-  background: transparent;
+.marketing-footer a {
   color: var(--text);
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 2px;
-  padding: 0;
+}
+
+.marketing-footer a:hover {
+  color: var(--accent-strong);
 }
 
 @media (max-width: 900px) {

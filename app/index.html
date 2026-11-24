@@ -665,9 +665,9 @@
                     <select id="detail-list" class="detail-select"
                       :value="selectedTodo.listId || ''"
                       @change="moveSelectedTodoToList($event.target.value || null)">
-                      <option value="">Tasks</option>
+                      <option value="" :selected="!selectedTodo?.listId">Tasks</option>
                       <template x-for="list in lists" :key="list.id">
-                        <option :value="list.id" x-text="list.name"></option>
+                        <option :value="list.id" :selected="selectedTodo?.listId === list.id" x-text="list.name"></option>
                       </template>
                     </select>
                   </div>
