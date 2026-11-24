@@ -1,225 +1,242 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f3eaff" />
-    <script>
-      try {
-        const saved = localStorage.getItem('mytodo-theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const resolved = saved === 'light' || saved === 'dark' ? saved : (prefersDark ? 'dark' : 'light');
-        if (saved === 'light' || saved === 'dark') {
-          document.querySelector('meta[name="color-scheme"]').content = saved;
-          document.documentElement.dataset.theme = saved;
-        }
-        document.querySelector('meta[name="theme-color"]').content = resolved === 'dark' ? '#21183a' : '#f3eaff';
-      } catch {}
-    </script>
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="My To Do" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
-    <title>My To Do — Calm, focused daily tasks</title>
-  </head>
-  <body>
-    <div class="marketing-shell" x-data="marketingPage" x-cloak x-show="ready">
-      <header class="marketing-nav">
-        <a href="/" class="brand">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          </span>
-          <span>My To Do</span>
-        </a>
-        <div class="nav-actions">
-          <div class="theme-switch" role="group" aria-label="Theme">
-            <button type="button" class="sun" :class="{ 'selected-theme': theme === 'light' }"
-              :aria-pressed="theme === 'light'" aria-label="Light theme" title="Light theme"
-              @click="setTheme('light')">☼</button>
-            <button type="button" class="moon" :class="{ 'selected-theme': theme === 'dark' }"
-              :aria-pressed="theme === 'dark'" aria-label="Dark theme" title="Dark theme"
-              @click="setTheme('dark')">☾</button>
-          </div>
-          <button type="button" class="cta-primary cta-compact" @click="signInWithGoogle" :disabled="loading">
-            <span x-text="loading ? 'Signing in…' : 'Sign in with Google'"></span>
-          </button>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f3eaff" />
+  <script>
+    try {
+      const saved = localStorage.getItem('mytodo-theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const resolved = saved === 'light' || saved === 'dark' ? saved : (prefersDark ? 'dark' : 'light');
+      if (saved === 'light' || saved === 'dark') {
+        document.querySelector('meta[name="color-scheme"]').content = saved;
+        document.documentElement.dataset.theme = saved;
+      }
+      document.querySelector('meta[name="theme-color"]').content = resolved === 'dark' ? '#21183a' : '#f3eaff';
+    } catch { }
+  </script>
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="My To Do" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <title>My To Do — Calm, focused daily tasks</title>
+</head>
+
+<body>
+  <div class="marketing-shell" x-data="marketingPage" x-cloak x-show="ready">
+    <header class="marketing-nav">
+      <a href="/" class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </span>
+        <span>My To Do</span>
+      </a>
+      <div class="nav-actions">
+        <div class="theme-switch" role="group" aria-label="Theme">
+          <button type="button" class="sun" :class="{ 'selected-theme': theme === 'light' }"
+            :aria-pressed="theme === 'light'" aria-label="Light theme" title="Light theme"
+            @click="setTheme('light')">☼</button>
+          <button type="button" class="moon" :class="{ 'selected-theme': theme === 'dark' }"
+            :aria-pressed="theme === 'dark'" aria-label="Dark theme" title="Dark theme"
+            @click="setTheme('dark')">☾</button>
         </div>
-      </header>
+        <button type="button" class="cta-primary cta-compact" @click="signInWithGoogle" :disabled="loading">
+          <span x-text="loading ? 'Signing in…' : 'Sign in with Google'"></span>
+        </button>
+      </div>
+    </header>
 
-      <main>
-        <section class="hero">
-          <span class="hero-badge">
-            <span aria-hidden="true">✦</span>
-            <span>Daily focus, custom lists, zero noise</span>
-          </span>
-          <h1>
-            Plan your day with a
-            <span class="hero-gradient-text">clearer list.</span>
-          </h1>
-          <p>
-            My To Do keeps your daily priorities, custom lists, list groups, steps, reminders, and repeating tasks organized in one calm workspace—ready offline and synced everywhere you sign in.
-          </p>
-          <div class="hero-actions">
-            <button type="button" class="cta-google" @click="signInWithGoogle" :disabled="loading">
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.8-5.5 3.8-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 6.8 2.5 2.5 6.8 2.5 12s4.3 9.5 9.5 9.5c5.5 0 9.1-3.9 9.1-9.3 0-.6-.1-1.1-.2-1.6H12z"/>
-                <path fill="#34A853" d="M3.6 7.4l3.2 2.4C7.7 7.6 9.7 6 12 6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 8.3 2.5 5.2 4.6 3.6 7.4z"/>
-                <path fill="#FBBC05" d="M12 21.5c2.5 0 4.7-.8 6.3-2.3l-2.9-2.4c-.8.6-1.9 1.1-3.4 1.1-3.8 0-5.2-2.5-5.5-3.8l-3.2 2.5c1.6 3 4.8 4.9 8.7 4.9z"/>
-                <path fill="#4285F4" d="M21.1 12.2c0-.6-.1-1.1-.2-1.6H12v3.9h5.5c-.3 1.4-1.1 2.5-2.1 3.2l2.9 2.4c1.7-1.6 2.8-4 2.8-7.9z"/>
+    <main>
+      <section class="hero">
+        <span class="hero-badge">
+          <span aria-hidden="true">✦</span>
+          <span>Daily focus, custom lists, zero noise</span>
+        </span>
+        <h1>
+          Plan your day with a
+          <span class="hero-gradient-text">clearer list.</span>
+        </h1>
+        <p>
+          My To Do keeps your daily priorities, custom lists, list groups, steps, reminders, and repeating tasks
+          organized in one calm workspace—ready offline and synced everywhere you sign in.
+        </p>
+        <div class="hero-actions">
+          <button type="button" class="cta-google" @click="signInWithGoogle" :disabled="loading">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path fill="#EA4335"
+                d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.8-5.5 3.8-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 6.8 2.5 2.5 6.8 2.5 12s4.3 9.5 9.5 9.5c5.5 0 9.1-3.9 9.1-9.3 0-.6-.1-1.1-.2-1.6H12z" />
+              <path fill="#34A853"
+                d="M3.6 7.4l3.2 2.4C7.7 7.6 9.7 6 12 6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 8.3 2.5 5.2 4.6 3.6 7.4z" />
+              <path fill="#FBBC05"
+                d="M12 21.5c2.5 0 4.7-.8 6.3-2.3l-2.9-2.4c-.8.6-1.9 1.1-3.4 1.1-3.8 0-5.2-2.5-5.5-3.8l-3.2 2.5c1.6 3 4.8 4.9 8.7 4.9z" />
+              <path fill="#4285F4"
+                d="M21.1 12.2c0-.6-.1-1.1-.2-1.6H12v3.9h5.5c-.3 1.4-1.1 2.5-2.1 3.2l2.9 2.4c1.7-1.6 2.8-4 2.8-7.9z" />
+            </svg>
+            <span x-text="loading ? 'Connecting to Google…' : 'Continue with Google'"></span>
+          </button>
+          <a href="#features" class="cta-secondary">Explore features</a>
+        </div>
+
+        <div class="hero-alert" role="alert" x-show="errorMessage" x-text="errorMessage"></div>
+
+        <div class="preview-window" aria-hidden="true">
+          <div class="preview-grid">
+            <div class="preview-sidebar">
+              <div class="brand">
+                <span class="brand-mark">✓</span>
+                <span>My To Do</span>
+              </div>
+              <div class="preview-nav-item active">
+                <span>☀</span>
+                <span>My Day</span>
+                <span>3</span>
+              </div>
+              <div class="preview-nav-item">
+                <span>☑</span>
+                <span>Tasks</span>
+                <span>5</span>
+              </div>
+              <div class="preview-divider"></div>
+              <div class="preview-label">Personal</div>
+              <div class="preview-nav-item nested">
+                <span class="dot pink"></span>
+                <span>Groceries</span>
+                <span>4</span>
+              </div>
+              <div class="preview-nav-item nested">
+                <span class="dot mint"></span>
+                <span>Weekend Trip</span>
+                <span>2</span>
+              </div>
+              <div class="preview-nav-item">
+                <span class="dot blue"></span>
+                <span>Reading List</span>
+                <span>6</span>
+              </div>
+            </div>
+
+            <div class="preview-main">
+              <div class="preview-main-header">
+                <h2>My Day</h2>
+                <p>Thursday, November 19</p>
+              </div>
+              <div class="preview-add-bar">＋ Add a task</div>
+              <div class="preview-task active">
+                <span class="preview-circle"></span>
+                <div>
+                  <h3>Finish quarterly budget review</h3>
+                  <div class="preview-meta-row">
+                    <span>Tasks</span>
+                    <span>2 of 3 steps</span>
+                    <span>Due Today</span>
+                    <span>↻ Monthly</span>
+                  </div>
+                </div>
+              </div>
+              <div class="preview-task">
+                <span class="preview-circle"></span>
+                <div>
+                  <h3>Pick up fresh coffee beans</h3>
+                  <div class="preview-meta-row">
+                    <span>Groceries</span>
+                    <span>Due Today</span>
+                    <span>🔔 4:00 PM</span>
+                  </div>
+                </div>
+              </div>
+              <div class="preview-task">
+                <span class="preview-circle"></span>
+                <div>
+                  <h3>Send invite for Friday dinner</h3>
+                  <div class="preview-meta-row">
+                    <span>Tasks</span>
+                    <span>Due Today</span>
+                  </div>
+                </div>
+              </div>
+              <div class="preview-completed-pill">▸ Completed 2</div>
+            </div>
+
+            <div class="preview-detail">
+              <div class="rainbow">
+                <i></i><i></i><i></i><i></i><i></i>
+              </div>
+              <h3>Finish quarterly budget review</h3>
+              <div class="preview-step done">✓ Export October receipts</div>
+              <div class="preview-step done">✓ Check recurring subscriptions</div>
+              <div class="preview-step">○ Share summary notes</div>
+              <div class="preview-chip">📅 Due Today</div>
+              <div class="preview-chip">🔔 Remind me at 2:00 PM</div>
+              <div class="preview-chip">↻ Repeats Monthly</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="features" aria-label="Features">
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">☀</div>
+          <h3>My Day &amp; Tasks</h3>
+          <p>Start every morning in My Day—automatically gathering everything due today—alongside your default Tasks
+            inbox.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">✦</div>
+          <h3>Lists &amp; Groups</h3>
+          <p>Create color-coded custom lists and organize related lists into collapsible groups to keep work and home
+            separate.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">↻</div>
+          <h3>Steps, Reminders &amp; Repeat</h3>
+          <p>Break big tasks into checkable steps, add free-form notes, schedule reminders, and set daily, weekly,
+            monthly, or yearly repeats.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">☾</div>
+          <h3>Light &amp; Dark Themes</h3>
+          <p>Pastel daylight or deep midnight—My To Do follows your system appearance automatically or lets you switch
+            anytime.</p>
+        </article>
+        <article class="feature-card feature-card-wide">
+          <div class="feature-wide-main">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M17.5 19H7a4.5 4.5 0 0 1-.5-8.97A6 6 0 0 1 18.2 8.2 4 4 0 0 1 17.5 19Z"></path>
+                <polyline points="9.5 13.5 11.5 15.5 15.5 11.5"></polyline>
               </svg>
-              <span x-text="loading ? 'Connecting to Google…' : 'Continue with Google'"></span>
-            </button>
-            <a href="#features" class="cta-secondary">Explore features</a>
-          </div>
-
-          <div class="hero-alert" role="alert" x-show="errorMessage" x-text="errorMessage"></div>
-
-          <div class="preview-window" aria-hidden="true">
-            <div class="preview-grid">
-              <div class="preview-sidebar">
-                <div class="brand">
-                  <span class="brand-mark">✓</span>
-                  <span>My To Do</span>
-                </div>
-                <div class="preview-nav-item active">
-                  <span>☀</span>
-                  <span>My Day</span>
-                  <span>3</span>
-                </div>
-                <div class="preview-nav-item">
-                  <span>☑</span>
-                  <span>Tasks</span>
-                  <span>5</span>
-                </div>
-                <div class="preview-divider"></div>
-                <div class="preview-label">Personal</div>
-                <div class="preview-nav-item nested">
-                  <span class="dot pink"></span>
-                  <span>Groceries</span>
-                  <span>4</span>
-                </div>
-                <div class="preview-nav-item nested">
-                  <span class="dot mint"></span>
-                  <span>Weekend Trip</span>
-                  <span>2</span>
-                </div>
-                <div class="preview-nav-item">
-                  <span class="dot blue"></span>
-                  <span>Reading List</span>
-                  <span>6</span>
-                </div>
-              </div>
-
-              <div class="preview-main">
-                <div class="preview-main-header">
-                  <h2>My Day</h2>
-                  <p>Thursday, November 19</p>
-                </div>
-                <div class="preview-add-bar">＋ Add a task</div>
-                <div class="preview-task active">
-                  <span class="preview-circle"></span>
-                  <div>
-                    <h3>Finish quarterly budget review</h3>
-                    <div class="preview-meta-row">
-                      <span>Tasks</span>
-                      <span>2 of 3 steps</span>
-                      <span>Due Today</span>
-                      <span>↻ Monthly</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="preview-task">
-                  <span class="preview-circle"></span>
-                  <div>
-                    <h3>Pick up fresh coffee beans</h3>
-                    <div class="preview-meta-row">
-                      <span>Groceries</span>
-                      <span>Due Today</span>
-                      <span>🔔 4:00 PM</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="preview-task">
-                  <span class="preview-circle"></span>
-                  <div>
-                    <h3>Send invite for Friday dinner</h3>
-                    <div class="preview-meta-row">
-                      <span>Tasks</span>
-                      <span>Due Today</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="preview-completed-pill">▸ Completed 2</div>
-              </div>
-
-              <div class="preview-detail">
-                <div class="rainbow">
-                  <i></i><i></i><i></i><i></i><i></i>
-                </div>
-                <h3>Finish quarterly budget review</h3>
-                <div class="preview-step done">✓ Export October receipts</div>
-                <div class="preview-step done">✓ Check recurring subscriptions</div>
-                <div class="preview-step">○ Share summary notes</div>
-                <div class="preview-chip">📅 Due Today</div>
-                <div class="preview-chip">🔔 Remind me at 2:00 PM</div>
-                <div class="preview-chip">↻ Repeats Monthly</div>
-              </div>
+            </div>
+            <div>
+              <h3>Works Offline, Syncs Automatically</h3>
+              <p>Keep adding, editing, and checking off tasks on a flight, train, or spotty Wi-Fi. Everything stays
+                saved on your device and syncs the moment you reconnect—and you can install My To Do right on your home
+                screen or desktop.</p>
             </div>
           </div>
-        </section>
+          <ul class="feature-pills" aria-label="Offline highlights">
+            <li><span aria-hidden="true">✓</span> Full editing offline</li>
+            <li><span aria-hidden="true">↻</span> Auto-syncs on reconnect</li>
+            <li><span aria-hidden="true">＋</span> Installable on any device</li>
+          </ul>
+        </article>
+      </section>
+    </main>
 
-        <section id="features" class="features" aria-label="Features">
-          <article class="feature-card">
-            <div class="feature-icon" aria-hidden="true">☀</div>
-            <h3>My Day &amp; Tasks</h3>
-            <p>Start every morning in My Day—automatically gathering everything due today—alongside your default Tasks inbox.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon" aria-hidden="true">✦</div>
-            <h3>Lists &amp; Groups</h3>
-            <p>Create color-coded custom lists and organize related lists into collapsible groups to keep work and home separate.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon" aria-hidden="true">↻</div>
-            <h3>Steps, Reminders &amp; Repeat</h3>
-            <p>Break big tasks into checkable steps, add free-form notes, schedule reminders, and set daily, weekly, monthly, or yearly repeats.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon" aria-hidden="true">☾</div>
-            <h3>Light &amp; Dark Themes</h3>
-            <p>Pastel daylight or deep midnight—My To Do follows your system appearance automatically or lets you switch anytime.</p>
-          </article>
-          <article class="feature-card feature-card-wide">
-            <div class="feature-wide-main">
-              <div class="feature-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17.5 19H7a4.5 4.5 0 0 1-.5-8.97A6 6 0 0 1 18.2 8.2 4 4 0 0 1 17.5 19Z"></path>
-                  <polyline points="9.5 13.5 11.5 15.5 15.5 11.5"></polyline>
-                </svg>
-              </div>
-              <div>
-                <h3>Works Offline, Syncs Automatically</h3>
-                <p>Keep adding, editing, and checking off tasks on a flight, train, or spotty Wi-Fi. Everything stays saved on your device and syncs the moment you reconnect—and you can install My To Do right on your home screen or desktop.</p>
-              </div>
-            </div>
-            <ul class="feature-pills" aria-label="Offline highlights">
-              <li><span aria-hidden="true">✓</span> Full editing offline</li>
-              <li><span aria-hidden="true">↻</span> Auto-syncs on reconnect</li>
-              <li><span aria-hidden="true">＋</span> Installable on any device</li>
-            </ul>
-          </article>
-        </section>
-      </main>
+    <footer class="marketing-footer">
+      <p>Built by <a href="https://www.raymondcamden.com" target="_blank">Raymond Camden</a>. Source code available on
+        <a href="https://github.com/cfjedimaster/mytodo" target="_blank">GitHub</a>.</p>
+    </footer>
+  </div>
+  <script type="module" src="/src/marketing.js"></script>
+</body>
 
-      <footer class="marketing-footer">
-        <p>Built by <a href="https://www.raymondcamden.com">Raymond Camden</a>. Source code available on <a href="https://github.com/cfjedimaster/mytodo">GitHub</a>.</p>
-      </footer>
-    </div>
-    <script type="module" src="/src/marketing.js"></script>
-  </body>
 </html>
