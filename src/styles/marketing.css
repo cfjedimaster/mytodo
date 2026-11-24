@@ -386,6 +386,11 @@
   margin-bottom: 14px;
 }
 
+.feature-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
 .feature-card h3 {
   margin: 0 0 7px;
   font-size: 16px;
@@ -398,6 +403,51 @@
   color: var(--muted);
   font-size: 13.5px;
   line-height: 1.55;
+}
+
+.feature-card-wide {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.feature-wide-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1 1 420px;
+}
+
+.feature-wide-main .feature-icon {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.feature-pills {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 1 auto;
+}
+
+.feature-pills li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--list-bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .marketing-footer {
@@ -424,5 +474,12 @@
   .preview-sidebar,
   .preview-detail {
     display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .feature-wide-main {
+    flex-direction: column;
+    gap: 14px;
   }
 }

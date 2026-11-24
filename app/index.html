@@ -248,7 +248,7 @@
         </div>
 
         <!-- Center Main Tasks Panel -->
-        <section class="tasks-panel" aria-label="Tasks">
+        <section class="tasks-panel" :class="{ 'is-searching': isSearching }" aria-label="Tasks">
           <header class="tasks-header">
             <div class="tasks-header-lead">
               <button type="button" class="drawer-toggle" x-ref="drawerToggle"
@@ -320,54 +320,15 @@
 
           <div class="save-error" role="alert" x-show="errorMessage" x-text="errorMessage"></div>
 
-          <!-- Inline Add a Task Bar -->
-          <div class="add-task-wrap" x-show="!isSearching">
-            <form class="add-task-card" @submit.prevent="submitNewTask">
-              <div class="add-task-row">
-                <span class="add-task-plus" aria-hidden="true">＋</span>
-                <label for="new-task-title" class="visually-hidden">Add a task</label>
-                <input id="new-task-title" x-ref="newTaskInput" class="add-task-input" type="text"
-                  :placeholder="activeView === 'my-day' ? 'Add a task for today…' : 'Add a task…'"
-                  autocomplete="off"
-                  x-model="newTaskTitle"
-                  @focus="addBarExpanded = true">
-                <button type="submit" class="add-task-submit"
-                  x-show="newTaskTitle.trim().length > 0"
-                  :disabled="creatingTask">Add</button>
-              </div>
-
-              <div class="add-task-options" x-show="addBarExpanded || newTaskTitle.trim().length > 0">
-                <label class="quick-field">
-                  <span>Due</span>
-                  <input type="date" aria-label="Due date" x-model="newTaskDueDate">
-                </label>
-                <label class="quick-field">
-                  <span>Remind</span>
-                  <input type="datetime-local" aria-label="Reminder date and time" x-model="newTaskReminderLocal">
-                </label>
-                <label class="quick-field">
-                  <span>Repeat</span>
-                  <select aria-label="Repeat pattern" x-model="newTaskRepeat">
-                    <option value="">None</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
-                </label>
-              </div>
-            </form>
-          </div>
-
           <!-- Active Tasks + Collapsible Completed Section -->
-          <div class="tasks-scroller">
+          <div class="tasks-scroller" x-ref="tasksScroller">
             <div class="empty-state" x-show="loadingWorkspace">
               <div class="empty-glyph" aria-hidden="true">✦</div>
               <h2>Loading your tasks…</h2>
             </div>
 
             <template x-if="!loadingWorkspace">
-              <div style="display: flex; flex-direction: column; gap: 16px;">
+              <div class="tasks-scroller-inner">
                 <!-- Incomplete Tasks -->
                 <div class="task-items" role="list" aria-label="Active tasks" x-show="activeTodos.length > 0">
                   <template x-for="todo in activeTodos" :key="todo.id">
@@ -478,6 +439,45 @@
                 </details>
               </div>
             </template>
+          </div>
+
+          <!-- Inline Add a Task Bar (anchored to bottom) -->
+          <div class="add-task-wrap" x-show="!isSearching">
+            <form class="add-task-card" @submit.prevent="submitNewTask">
+              <div class="add-task-row">
+                <span class="add-task-plus" aria-hidden="true">＋</span>
+                <label for="new-task-title" class="visually-hidden">Add a task</label>
+                <input id="new-task-title" x-ref="newTaskInput" class="add-task-input" type="text"
+                  :placeholder="activeView === 'my-day' ? 'Add a task for today…' : 'Add a task…'"
+                  autocomplete="off"
+                  x-model="newTaskTitle"
+                  @focus="addBarExpanded = true">
+                <button type="submit" class="add-task-submit"
+                  x-show="newTaskTitle.trim().length > 0"
+                  :disabled="creatingTask">Add</button>
+              </div>
+
+              <div class="add-task-options" x-show="addBarExpanded || newTaskTitle.trim().length > 0">
+                <label class="quick-field">
+                  <span>Due</span>
+                  <input type="date" aria-label="Due date" x-model="newTaskDueDate">
+                </label>
+                <label class="quick-field">
+                  <span>Remind</span>
+                  <input type="datetime-local" aria-label="Reminder date and time" x-model="newTaskReminderLocal">
+                </label>
+                <label class="quick-field">
+                  <span>Repeat</span>
+                  <select aria-label="Repeat pattern" x-model="newTaskRepeat">
+                    <option value="">None</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </label>
+              </div>
+            </form>
           </div>
         </section>
 

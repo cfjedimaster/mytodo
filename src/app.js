@@ -354,8 +354,8 @@ Alpine.data('todoApp', () => ({
 
   get emptyDescription() {
     if (this.isSearching) return 'Try a different word from a title, step, or note.'
-    if (this.activeView === 'my-day') return 'Add a task above and it will automatically get today’s due date.'
-    return 'Use the bar above to add a task, break it into steps, or set a reminder.'
+    if (this.activeView === 'my-day') return 'Add a task below and it will automatically get today’s due date.'
+    return 'Use the bar below to add a task, break it into steps, or set a reminder.'
   },
 
   get deleteListMessage() {
@@ -1065,7 +1065,11 @@ Alpine.data('todoApp', () => ({
       this.newTaskDueDate = ''
       this.newTaskReminderLocal = ''
       this.newTaskRepeat = ''
-      this.$nextTick(() => this.$refs.newTaskInput?.focus())
+      this.$nextTick(() => {
+        const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+        this.$refs.tasksScroller?.scrollTo({ top: 0, behavior })
+        this.$refs.newTaskInput?.focus()
+      })
     } catch (err) {
       console.error('Create task failed:', err)
       this.errorMessage = err.message || 'Unable to add task.'
